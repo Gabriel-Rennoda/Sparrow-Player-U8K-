@@ -9,12 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip project (always starts from a clean folder so stale committed files can never win)
+      - name: Pick the newest project zip (highest versionCode among SparrowPlayer*.zip) and unzip it
         run: |
-          rm -rf SparrowPlayer
-          unzip -q -o SparrowPlayer.zip
-          test -f SparrowPlayer/app/build.gradle.kts
-          echo "Building:" && grep -E "versionCode|versionName" SparrowPlayer/app/build.gradle.kts
+          best=""; bestcode=-1
+          for z in SparrowPlayer*.zip; do
+            rm -rf _t; mkdir _t
+            unzip -q -o "$z" -d _t || continue
+            code=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' _t/SparrowPlayer/app/build.gradle.kts || echo 0)
+            echo "Found $z -> versionCode $code"
+            if [ "$code" -gt "$bestcode" ]; then best="$z"; bestcode=$code; fi
+          done
+          test -n "$best"
+          echo "USING $best"
+          echo "ZIP_USED=$best" >> "$GITHUB_ENV"
+          rm -rf SparrowPlayer _t
+          unzip -q -o "$best"
+          grep -E "versionCode|versionName" SparrowPlayer/app/build.gradle.kts
           ls SparrowPlayer/app/src/main/java/com/sparrow/player/ui/epg/
       - uses: actions/setup-java@v4
         with:
@@ -36,5 +46,5 @@ jobs:
         run: |
           cp SparrowPlayer/app/build/outputs/apk/debug/app-debug.apk SparrowPlayer.apk
           gh release delete latest -y --cleanup-tag || true
-          gh release create latest SparrowPlayer.apk --title "Sparrow Player (latest)" --notes "Commit ${GITHUB_SHA::7} - $(grep -o 'versionName = "[^"]*"' SparrowPlayer/app/build.gradle.kts)"
+          gh release create latest SparrowPlayer.apk --title "Sparrow Player (latest)" --notes "Commit ${GITHUB_SHA::7} - ${ZIP_USED} - $(grep -o 'versionName = "[^"]*"' SparrowPlayer/app/build.gradle.kts)"
  
