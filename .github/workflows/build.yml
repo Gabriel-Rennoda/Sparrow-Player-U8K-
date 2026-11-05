@@ -18,6 +18,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
+      - name: Unit tests (guide maths, resume, clock format, panels) - informational, never blocks the APK
+        working-directory: SparrowPlayer
+        continue-on-error: true
+        run: gradle testDebugUnitTest --no-daemon
       - name: Build APK
         working-directory: SparrowPlayer
         run: gradle assembleDebug --no-daemon
